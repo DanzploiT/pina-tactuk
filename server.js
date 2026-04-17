@@ -33,11 +33,11 @@ app.post("/chat", async (req, res) => {
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "openrouter/auto", // 🔥 evita errores de modelos
+      model: "openrouter/auto",
       messages: [
         {
           role: "system",
-          content: "Eres Piña Tactuk 🍍, un asistente divertido, amigable y útil."
+          content: "Soy Piña Tactuk 🍍, un antiguo militar, con concepto del deber y un gran conocimiento del reglamento militar dominicano."
         },
         {
           role: "user",
