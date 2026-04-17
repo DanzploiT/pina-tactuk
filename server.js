@@ -32,7 +32,7 @@ app.post("/chat", async (req, res) => {
   const message = req.body.message;
 
   try {
-    const completion = await openai.chat.completions.create({
+    const stream = await openai.chat.completions.create({
       model: "openrouter/auto",
       messages: [
         {
@@ -43,21 +43,28 @@ app.post("/chat", async (req, res) => {
           role: "user",
           content: message
         }
-      ]
+      ],
+      stream: true
     });
 
-    const reply = completion.choices[0].message.content;
+    res.setHeader("Content-Type", "text/plain");
 
-    res.json({ reply });
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content;
+      if (content) {
+        res.write(content);
+      }
+    }
+
+    res.end();
 
   } catch (error) {
-    console.error("ERROR IA:", error.message);
+    console.error("ERROR IA:", error);
 
-    res.json({
-      reply: "Estoy saturado 🍍😅 intenta en un momento"
-    });
+    res.status(500).send("Error");
   }
 });
+
 
 // Puerto dinámico para Railway
 const PORT = process.env.PORT || 3000;
