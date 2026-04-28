@@ -3,136 +3,141 @@ import cors from "cors";
 import dotenv from "dotenv";
 import OpenAI from "openai";
 import mongoose from "mongoose";
-import bcrypt from "bcryptjs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 dotenv.config();
 
 const app = express();
 
+// 🔧 FIX RUTAS (IMPORTANTE PARA RAILWAY)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// MIDDLEWARES
 app.use(cors());
 app.use(express.json());
-app.use(express.static("public"));
+app.use(express.static(__dirname)); // sirve test.html correctamente
 
-// ================= DB =================
+// 🔥 VALIDAR MONGO
+if (!process.env.MONGO_URI) {
+  console.error("❌ MONGO_URI no definido");
+  process.exit(1);
+}
+
+// 🔗 CONEXIÓN MONGO
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("Mongo conectado"))
-  .catch(err => console.log(err));
+  .then(() => console.log("✅ Mongo conectado"))
+  .catch(err => console.error("❌ Error Mongo:", err));
 
-// ================= MODELOS =================
-const User = mongoose.model("User", new mongoose.Schema({
-  username: String,
-  password: String
-}));
-
-const Chat = mongoose.model("Chat", new mongoose.Schema({
+// 📦 MODELO CHAT
+const chatSchema = new mongoose.Schema({
   userId: String,
-  messages: Array
-}));
+  role: String,
+  content: String,
+  createdAt: { type: Date, default: Date.now }
+});
 
-// ================= OPENROUTER =================
+const Chat = mongoose.model("Chat", chatSchema);
+
+// 🤖 OPENROUTER
 const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY
+  apiKey: process.env.OPENROUTER_API_KEY,
+  defaultHeaders: {
+    "HTTP-Referer": "https://pina-tactuk-production.up.railway.app",
+    "X-OpenRouter-Title": "Pena Tactuk"
+  }
 });
 
-// ================= AUTH =================
-
-// Registro
-app.post("/register", async (req, res) => {
-  const { username, password } = req.body;
-
-  const exist = await User.findOne({ username });
-  if (exist) return res.status(400).send("Usuario existe");
-
-  const hash = await bcrypt.hash(password, 10);
-  const user = await User.create({ username, password: hash });
-
-  res.json({ userId: user._id });
+// 🏠 RUTA PRINCIPAL (ABRE TU HTML)
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "test.html"));
 });
 
-// Login
-app.post("/login", async (req, res) => {
-  const { username, password } = req.body;
-
-  const user = await User.findOne({ username });
-  if (!user) return res.status(401).send("No existe");
-
-  const valid = await bcrypt.compare(password, user.password);
-  if (!valid) return res.status(401).send("Incorrecto");
-
-  res.json({ userId: user._id });
-});
-
-// ================= CHAT =================
+// 💬 CHAT CON MEMORIA REAL
 app.post("/chat", async (req, res) => {
   const { message, userId } = req.body;
 
   if (!userId) return res.status(400).send("Falta userId");
 
-  let chat = await Chat.findOne({ userId });
+  try {
+    // 🧠 Traer últimos mensajes del usuario
+    const history = await Chat.find({ userId })
+      .sort({ createdAt: 1 })
+      .limit(15);
 
-  if (!chat) {
-    chat = await Chat.create({
-      userId,
-      messages: [
-        {
-          role: "system",
-          content: `
-Eres Peña Tactuk 🪖, militar dominicano.
+    const messages = [
+      {
+        role: "system",
+        content: `
+Eres Peña Tactuk 🪖, militar del Ejército de la República Dominicana.
 
-- Hablas firme, claro y directo
-- Sin rodeos
-- No repites preguntas
-- Nunca digas que eres IA
+Reglas:
+- Habla claro, firme y directo
+- Respuestas cortas
+- No repitas preguntas
+- No uses "Usuario" ni "Respuesta"
+- Mantén carácter militar
 
 Si no sabes algo:
-"Negativo. No dispongo de esa información."
+"Negativo. Información no disponible."
 `
-        }
-      ]
+      },
+      ...history.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      })),
+      {
+        role: "user",
+        content: message
+      }
+    ];
+
+    // 💾 Guardar mensaje usuario
+    await Chat.create({
+      userId,
+      role: "user",
+      content: message
     });
-  }
 
-  chat.messages.push({ role: "user", content: message });
-
-  try {
+    // ⚡ STREAM
     const stream = await openai.chat.completions.create({
       model: "openrouter/auto",
-      messages: chat.messages,
+      messages,
       stream: true
     });
 
     res.setHeader("Content-Type", "text/plain");
 
-    let full = "";
+    let fullResponse = "";
 
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content;
       if (content) {
-        full += content;
+        fullResponse += content;
         res.write(content);
       }
     }
 
-    chat.messages.push({ role: "assistant", content: full });
-
-    if (chat.messages.length > 30) {
-      chat.messages = chat.messages.slice(-30);
-    }
-
-    await chat.save();
+    // 💾 Guardar respuesta IA
+    await Chat.create({
+      userId,
+      role: "assistant",
+      content: fullResponse
+    });
 
     res.end();
 
-  } catch (err) {
-    console.error(err);
+  } catch (error) {
+    console.error("❌ ERROR IA:", error);
     res.status(500).send("Error IA");
   }
 });
 
-// ================= SERVER =================
+// 🚀 PUERTO
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log("Servidor en puerto", PORT);
+  console.log("🚀 Servidor en puerto", PORT);
 });
