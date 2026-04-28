@@ -7,29 +7,50 @@ dotenv.config();
 
 const app = express();
 
-// Middlewares
 app.use(cors());
 app.use(express.json());
-app.use(express.static("./")); // sirve tu test.html
+app.use(express.static("./"));
 
-// Cliente OpenRouter (modo OpenAI)
+// 🔐 Usuarios (simulado)
+const users = [
+  { username: "admin", password: "1234" }
+];
+
+// 🧠 Memoria por usuario
+const memory = {};
+
+// Cliente IA
 const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY,
-  defaultHeaders: {
-    "HTTP-Referer": "https://pina-tactuk-production.up.railway.app",
-    "X-OpenRouter-Title": "Pena Tactuk"
+  apiKey: process.env.OPENROUTER_API_KEY
+});
+
+// LOGIN
+app.post("/login", (req, res) => {
+  const { username, password } = req.body;
+
+  const user = users.find(
+    u => u.username === username && u.password === password
+  );
+
+  if (!user) {
+    return res.status(401).send("Credenciales incorrectas");
   }
+
+  res.json({ success: true, username });
 });
 
-// Ruta de prueba
-app.get("/", (req, res) => {
-  res.send("Peña Tactuk está activo 🪖");
-});
-
-// Chat IA
+// CHAT
 app.post("/chat", async (req, res) => {
-  const message = req.body.message;
+  const { message, username } = req.body;
+
+  if (!username) {
+    return res.status(401).send("No autorizado");
+  }
+
+  if (!memory[username]) memory[username] = [];
+
+  memory[username].push({ role: "user", content: message });
 
   try {
     const stream = await openai.chat.completions.create({
@@ -38,48 +59,44 @@ app.post("/chat", async (req, res) => {
         {
           role: "system",
           content: `
-Eres Peña Tactuk 🇩🇴, un militar disciplinado del Ejército de la República Dominicana.
+Eres Peña Tactuk 🇩🇴.
 
-Reglas:
-- Responde breve
-- Sé claro y directo
-- Usa tono firme pero natural
-- No hagas discursos largos
-- No repitas ideas
-- Habla como en una conversación real
-
-Ejemplo:
-"Buenos días. ¿En qué puedo ayudarte?"
+Hablas como un militar:
+- Directo
+- Claro
+- Sin discursos largos
+- Conversación natural
 `
         },
-        {
-          role: "user",
-          content: message
-        }
+        ...memory[username]
       ],
       stream: true
     });
 
     res.setHeader("Content-Type", "text/plain");
 
+    let fullResponse = "";
+
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content;
       if (content) {
+        fullResponse += content;
         res.write(content);
       }
     }
 
+    memory[username].push({ role: "assistant", content: fullResponse });
+
     res.end();
 
   } catch (error) {
-    console.error("ERROR IA:", error);
-    res.status(500).send("Error en la IA");
+    console.error(error);
+    res.status(500).send("Error IA");
   }
 });
 
-// Puerto dinámico para Railway
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log("Servidor corriendo en puerto", PORT);
+  console.log("Servidor en puerto", PORT);
 });
