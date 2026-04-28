@@ -2,85 +2,137 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import OpenAI from "openai";
+import mongoose from "mongoose";
+import bcrypt from "bcrypt";
 
 dotenv.config();
 
-// ✅ Crear app PRIMERO
 const app = express();
 
-// ✅ Middlewares
 app.use(cors());
 app.use(express.json());
-app.use(express.static(".")); // sirve test.html
+app.use(express.static("public"));
 
-// ✅ Cliente OpenRouter
+// ================= DB =================
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("Mongo conectado"))
+  .catch(err => console.log(err));
+
+// ================= MODELOS =================
+const User = mongoose.model("User", new mongoose.Schema({
+  username: String,
+  password: String
+}));
+
+const Chat = mongoose.model("Chat", new mongoose.Schema({
+  userId: String,
+  messages: Array
+}));
+
+// ================= OPENROUTER =================
 const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY,
-  defaultHeaders: {
-    "HTTP-Referer": "https://pina-tactuk-production.up.railway.app",
-    "X-OpenRouter-Title": "Pena Tactuk"
-  }
+  apiKey: process.env.OPENROUTER_API_KEY
 });
 
-// ✅ Ruta de prueba
-app.get("/", (req, res) => {
-  res.send("Peña Tactuk está activo 🍍");
+// ================= AUTH =================
+
+// Registro
+app.post("/register", async (req, res) => {
+  const { username, password } = req.body;
+
+  const exist = await User.findOne({ username });
+  if (exist) return res.status(400).send("Usuario existe");
+
+  const hash = await bcrypt.hash(password, 10);
+  const user = await User.create({ username, password: hash });
+
+  res.json({ userId: user._id });
 });
 
-// ✅ CHAT IA
+// Login
+app.post("/login", async (req, res) => {
+  const { username, password } = req.body;
+
+  const user = await User.findOne({ username });
+  if (!user) return res.status(401).send("No existe");
+
+  const valid = await bcrypt.compare(password, user.password);
+  if (!valid) return res.status(401).send("Incorrecto");
+
+  res.json({ userId: user._id });
+});
+
+// ================= CHAT =================
 app.post("/chat", async (req, res) => {
-  const message = req.body.message;
+  const { message, userId } = req.body;
 
-  try {
-    const stream = await openai.chat.completions.create({
-      model: "openrouter/auto",
+  if (!userId) return res.status(400).send("Falta userId");
+
+  let chat = await Chat.findOne({ userId });
+
+  if (!chat) {
+    chat = await Chat.create({
+      userId,
       messages: [
         {
           role: "system",
           content: `
-Eres Peña Tactuk 🍍, un militar dominicano formado en la Academia Militar Batalla de las Carreras.
+Eres Peña Tactuk 🪖, militar dominicano.
 
-Tu personalidad:
-- Disciplina militar
-- Respuestas claras, firmes y respetuosas
-- Nada de discursos largos innecesarios
-
-Reglas:
-- NO uses "Usuario:" ni "Respuesta:"
-- NO repitas la pregunta
-- Responde directo
+- Hablas firme, claro y directo
+- Sin rodeos
+- No repites preguntas
+- Nunca digas que eres IA
 
 Si no sabes algo:
 "Negativo. No dispongo de esa información."
 `
-        },
-        {
-          role: "user",
-          content: message
         }
-      ],
+      ]
+    });
+  }
+
+  chat.messages.push({ role: "user", content: message });
+
+  try {
+    const stream = await openai.chat.completions.create({
+      model: "openrouter/auto",
+      messages: chat.messages,
       stream: true
     });
 
     res.setHeader("Content-Type", "text/plain");
 
+    let full = "";
+
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content;
-      if (content) res.write(content);
+      if (content) {
+        full += content;
+        res.write(content);
+      }
     }
+
+    chat.messages.push({ role: "assistant", content: full });
+
+    if (chat.messages.length > 30) {
+      chat.messages = chat.messages.slice(-30);
+    }
+
+    await chat.save();
 
     res.end();
 
-  } catch (error) {
-    console.error("ERROR IA:", error);
+  } catch (err) {
+    console.error(err);
     res.status(500).send("Error IA");
   }
 });
 
-// ✅ PUERTO
+// ================= SERVER =================
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log("Servidor corriendo en puerto", PORT);
+  console.log("Servidor en puerto", PORT);
 });

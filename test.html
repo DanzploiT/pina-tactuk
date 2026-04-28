@@ -2,242 +2,102 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Peña Tactuk 🪖</title>
-
+<title>Peña Tactuk</title>
 <style>
-body {
-  margin: 0;
-  font-family: 'Segoe UI', sans-serif;
-  background: #0f172a;
-}
-
-/* LOGIN */
-#loginBox {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: #1e293b;
-  padding: 30px;
-  border-radius: 12px;
-  width: 300px;
-}
-
-#loginBox input {
-  width: 100%;
-  padding: 10px;
-  margin: 10px 0;
-  border: none;
-  border-radius: 6px;
-  background: #334155;
-  color: white;
-}
-
-#loginBox button {
-  width: 100%;
-  padding: 10px;
-  background: #22c55e;
-  border: none;
-  border-radius: 6px;
-  color: black;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-/* BOTÓN */
-#openChat {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  background: #22c55e;
-  border: none;
-  padding: 15px;
-  border-radius: 50%;
-  font-size: 20px;
-  cursor: pointer;
-  display: none;
-}
-
-/* CHAT */
-#chatBox {
-  position: fixed;
-  bottom: 80px;
-  right: 20px;
-  width: 420px;
-  height: 600px;
-  background: #020617;
-  border-radius: 12px;
-  display: none;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-/* HEADER */
-#header {
-  padding: 15px;
-  color: #22c55e;
-  font-weight: bold;
-  border-bottom: 1px solid #1e293b;
-}
-
-/* MENSAJES */
-#messages {
-  flex: 1;
-  padding: 15px;
-  overflow-y: auto;
-}
-
-/* BURBUJAS */
-.msg {
-  margin: 10px 0;
-  padding: 10px 14px;
-  border-radius: 12px;
-  max-width: 80%;
-}
-
-.user {
-  background: #22c55e;
-  color: black;
-  margin-left: auto;
-}
-
-.bot {
-  background: #1e293b;
-  color: #e2e8f0;
-}
-
-/* INPUT */
-#inputArea {
-  display: flex;
-  border-top: 1px solid #1e293b;
-}
-
-#input {
-  flex: 1;
-  padding: 12px;
-  border: none;
-  background: #020617;
-  color: white;
-}
-
-#sendBtn {
-  background: #22c55e;
-  border: none;
-  padding: 0 20px;
-  cursor: pointer;
-}
+body { font-family: Arial; background:#0f172a; color:white; }
+#chat { max-width:600px; margin:auto; }
+.msg { padding:10px; margin:5px; border-radius:10px; }
+.user { background:#22c55e; color:black; text-align:right; }
+.bot { background:#1e293b; }
 </style>
 </head>
-
 <body>
 
-<!-- LOGIN -->
-<div id="loginBox">
-  <h2 style="color:white;text-align:center;">Peña Tactuk 🪖</h2>
-  <input id="user" placeholder="Usuario">
-  <input id="pass" type="password" placeholder="Contraseña">
-  <button onclick="login()">Entrar</button>
+<div id="login">
+  <input id="user" placeholder="usuario">
+  <input id="pass" type="password" placeholder="password">
+  <button onclick="login()">Login</button>
+  <button onclick="register()">Register</button>
 </div>
 
-<!-- BOTÓN -->
-<button id="openChat">💬</button>
-
-<!-- CHAT -->
-<div id="chatBox">
-  <div id="header">Peña Tactuk 🪖</div>
+<div id="chat" style="display:none;">
   <div id="messages"></div>
-
-  <div id="inputArea">
-    <input id="input" placeholder="Escribe un mensaje...">
-    <button id="sendBtn" onclick="sendMessage()">➤</button>
-  </div>
+  <input id="input">
+  <button onclick="send()">Enviar</button>
 </div>
 
 <script>
-// 🧠 USER ID (CLAVE)
 let userId = localStorage.getItem("userId");
 
-if (!userId) {
-  userId = "user_" + Date.now();
-  localStorage.setItem("userId", userId);
-}
-
-// LOGIN (solo visual)
-let username = localStorage.getItem("user");
-
-if (username) {
-  document.getElementById("loginBox").style.display = "none";
-  document.getElementById("openChat").style.display = "block";
+if (userId) {
+  document.getElementById("login").style.display="none";
+  document.getElementById("chat").style.display="block";
 }
 
 async function login() {
-  const user = document.getElementById("user").value;
-  const pass = document.getElementById("pass").value;
-
   const res = await fetch("/login", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ username: user, password: pass })
-  });
-
-  if (!res.ok) return alert("Credenciales incorrectas");
-
-  localStorage.setItem("user", user);
-  location.reload();
-}
-
-// ABRIR CHAT
-document.getElementById("openChat").onclick = () => {
-  const box = document.getElementById("chatBox");
-  box.style.display = box.style.display === "flex" ? "none" : "flex";
-};
-
-// MENSAJES
-function addMessage(text, cls) {
-  const div = document.createElement("div");
-  div.className = "msg " + cls;
-  div.textContent = text;
-  document.getElementById("messages").appendChild(div);
-  document.getElementById("messages").scrollTop = 999999;
-  return div;
-}
-
-// ENVIAR MENSAJE.
-async function sendMessage() {
-  const input = document.getElementById("input");
-  const text = input.value;
-  if (!text) return;
-
-  addMessage(text, "user");
-  input.value = "";
-
-  const botMsg = addMessage("Peña está escribiendo...", "bot");
-
-  const res = await fetch("/chat", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({
-      message: text,
-      userId: userId // 🔥 AQUÍ ESTÁ LA CLAVE
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      username: user.value,
+      password: pass.value
     })
   });
 
-  botMsg.textContent = "";
+  const data = await res.json();
+  localStorage.setItem("userId", data.userId);
+  location.reload();
+}
+
+async function register() {
+  const res = await fetch("/register", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      username: user.value,
+      password: pass.value
+    })
+  });
+
+  const data = await res.json();
+  localStorage.setItem("userId", data.userId);
+  location.reload();
+}
+
+function add(text, cls){
+  const div=document.createElement("div");
+  div.className="msg "+cls;
+  div.textContent=text;
+  messages.appendChild(div);
+}
+
+async function send(){
+  add(input.value,"user");
+
+  const res = await fetch("/chat",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      message: input.value,
+      userId
+    })
+  });
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    botMsg.textContent += decoder.decode(value);
-  }
-}
+  let bot = document.createElement("div");
+  bot.className="msg bot";
+  messages.appendChild(bot);
 
-// ENTER
-document.getElementById("input").addEventListener("keypress", function(e) {
-  if (e.key === "Enter") sendMessage();
-});
+  while(true){
+    const {done,value}=await reader.read();
+    if(done) break;
+    bot.textContent += decoder.decode(value);
+  }
+
+  input.value="";
+}
 </script>
 
 </body>
