@@ -11,7 +11,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static("./"));
 
-// 🔐 Usuarios (simulado)
+// 🔐 Usuarios
 const users = [
   { username: "admin", password: "1234" }
 ];
