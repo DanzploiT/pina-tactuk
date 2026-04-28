@@ -9,7 +9,7 @@ dotenv.config();
 
 const app = express();
 
-// 🔧 Fix rutas (importante en Railway)
+// Fix rutas Railway
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -23,44 +23,72 @@ app.use(express.static(__dirname));
 // Cliente OpenRouter
 const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY,
-  defaultHeaders: {
-    "HTTP-Referer": "https://pina-tactuk-production.up.railway.app",
-    "X-OpenRouter-Title": "Pina Tactuk"
-  }
+  apiKey: process.env.OPENROUTER_API_KEY
 });
+
+// 🧠 Memoria en servidor
+let conversations = {};
 
 // Ruta base
 app.get("/", (req, res) => {
-  res.send("Piña Tactuk está vivo 🍍");
+  res.send("Peña Tactuk 🇩🇴 está operativo");
 });
 
-// 🚀 Chat SIN streaming (compatible con tu frontend actual)
+// Chat con streaming REAL
 app.post("/chat", async (req, res) => {
-  const message = req.body.message;
+  const { message, sessionId } = req.body;
+
+  // Crear memoria si no existe
+  if (!conversations[sessionId]) {
+    conversations[sessionId] = [
+      {
+        role: "system",
+        content: `
+Eres Peña Tactuk 🇩🇴, un militar disciplinado del Ejército de la República Dominicana.
+Tienes amplio conocimiento del reglamento militar dominicano y de la Academia Militar Batalla de las Carreras.
+Hablas con respeto, firmeza, liderazgo y autoridad militar.
+Respondes claro, directo y con carácter.
+        `
+      }
+    ];
+  }
+
+  // Guardar mensaje del usuario
+  conversations[sessionId].push({
+    role: "user",
+    content: message
+  });
 
   try {
-    const completion = await openai.chat.completions.create({
+    const stream = await openai.chat.completions.create({
       model: "openrouter/auto",
-      messages: [
-        {
-          role: "system",
-          content: "Soy Piña Tactuk 🍍, un antiguo militar con disciplina, honor y conocimiento del reglamento militar dominicano."
-        },
-        {
-          role: "user",
-          content: message
-        }
-      ]
+      messages: conversations[sessionId],
+      stream: true
     });
 
-    const reply = completion.choices[0].message.content;
+    res.setHeader("Content-Type", "text/plain");
 
-    res.json({ reply });
+    let fullResponse = "";
+
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content;
+      if (content) {
+        fullResponse += content;
+        res.write(content);
+      }
+    }
+
+    // Guardar respuesta IA
+    conversations[sessionId].push({
+      role: "assistant",
+      content: fullResponse
+    });
+
+    res.end();
 
   } catch (error) {
     console.error("ERROR IA:", error);
-    res.status(500).json({ reply: "Error con la IA" });
+    res.status(500).end("Error");
   }
 });
 

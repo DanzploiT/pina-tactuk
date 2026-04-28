@@ -1,107 +1,86 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Piña Chat</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-    }
+<meta charset="UTF-8">
+<title>Peña Tactuk</title>
 
-    /* Botón flotante */
-    #openChat {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      background: #10a37f;
-      color: white;
-      border: none;
-      padding: 15px;
-      border-radius: 50%;
-      cursor: pointer;
-      font-size: 20px;
-    }
+<style>
+body { margin:0; font-family: Arial; }
 
-    /* Ventana chat */
-    #chatBox {
-      position: fixed;
-      bottom: 80px;
-      right: 20px;
-      width: 350px;
-      height: 500px;
-      background: #026c32;
-      color: white;
-      border-radius: 10px;
-      display: none;
-      flex-direction: column;
-      overflow: hidden;
-      animation: fadeIn 0.3s ease;
-    }
+#openChat {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #10a37f;
+  color: white;
+  border: none;
+  padding: 15px;
+  border-radius: 50%;
+  cursor: pointer;
+}
 
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px);}
-      to { opacity: 1; transform: translateY(0);}
-    }
+#chatBox {
+  position: fixed;
+  bottom: 80px;
+  right: 20px;
+  width: 360px;
+  height: 520px;
+  background: #343541;
+  border-radius: 10px;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
 
-    #messages {
-      flex: 1;
-      padding: 10px;
-      overflow-y: auto;
-    }
+#header {
+  padding: 10px;
+  background: #202123;
+  font-weight: bold;
+}
 
-    .msg {
-      margin: 5px 0;
-      padding: 8px;
-      border-radius: 6px;
-      max-width: 80%;
-      word-wrap: break-word;
-    }
+#messages {
+  flex: 1;
+  padding: 10px;
+  overflow-y: auto;
+}
 
-    .user {
-      background: #10a37f;
-      align-self: flex-end;
-    }
+.msg {
+  padding: 8px;
+  margin: 5px 0;
+  border-radius: 6px;
+  max-width: 80%;
+}
 
-    .bot {
-      background: #444654;
-      align-self: flex-start;
-    }
+.user { background: #10a37f; align-self: flex-end; }
+.bot { background: #444654; align-self: flex-start; }
 
-    #inputArea {
-      display: flex;
-      border-top: 1px solid #555;
-    }
+#inputArea {
+  display: flex;
+}
 
-    #input {
-      flex: 1;
-      padding: 10px;
-      border: none;
-      outline: none;
-    }
+#input {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  outline: none;
+}
 
-    button {
-      padding: 10px;
-      border: none;
-      background: #10a37f;
-      color: white;
-      cursor: pointer;
-    }
-
-    #typing {
-      font-size: 12px;
-      opacity: 0.7;
-      padding: 5px;
-    }
-  </style>
+button {
+  padding: 10px;
+  background: #10a37f;
+  border: none;
+  color: white;
+}
+</style>
 </head>
+
 <body>
 
 <button id="openChat">💬</button>
 
 <div id="chatBox">
+  <div id="header">Peña Tactuk 🇩🇴</div>
   <div id="messages"></div>
-  <div id="typing"></div>
 
   <div id="inputArea">
     <input id="input" placeholder="Escribe..." />
@@ -109,76 +88,31 @@
   </div>
 </div>
 
-<!-- 🔊 sonido -->
-<audio id="typingSound" src="https://www.soundjay.com/typing/sounds/keyboard-1.mp3"></audio>
-
 <script>
 const chatBox = document.getElementById("chatBox");
 const openBtn = document.getElementById("openChat");
 const messagesDiv = document.getElementById("messages");
 const input = document.getElementById("input");
-const typingDiv = document.getElementById("typing");
-const sound = document.getElementById("typingSound");
 
-// abrir/cerrar
+// 🧠 sesión única
+const sessionId = localStorage.getItem("sessionId") || crypto.randomUUID();
+localStorage.setItem("sessionId", sessionId);
+
+// abrir chat
 openBtn.onclick = () => {
   chatBox.style.display = chatBox.style.display === "flex" ? "none" : "flex";
 };
 
-// 🧠 cargar historial
-let history = JSON.parse(localStorage.getItem("chat_history")) || [];
-
-function renderHistory() {
-  messagesDiv.innerHTML = "";
-  history.forEach(msg => {
-    addMessage(msg.text, msg.type, false);
-  });
-}
-
-renderHistory();
-
-// agregar mensaje
-function addMessage(text, type, save = true) {
+function addMessage(text, type) {
   const div = document.createElement("div");
   div.className = "msg " + type;
   div.textContent = text;
   messagesDiv.appendChild(div);
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-  if (save) {
-    history.push({ text, type });
-    localStorage.setItem("chat_history", JSON.stringify(history));
-  }
+  return div;
 }
 
-// ✨ efecto escribir con sonido
-function typeEffect(text) {
-  return new Promise(resolve => {
-    let i = 0;
-    const div = document.createElement("div");
-    div.className = "msg bot";
-    messagesDiv.appendChild(div);
-
-    const interval = setInterval(() => {
-      if (i < text.length) {
-        div.textContent += text[i];
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-        sound.currentTime = 0;
-        sound.play().catch(()=>{});
-
-        i++;
-      } else {
-        clearInterval(interval);
-        history.push({ text, type: "bot" });
-        localStorage.setItem("chat_history", JSON.stringify(history));
-        resolve();
-      }
-    }, 20);
-  });
-}
-
-// enviar mensaje
+// 🚀 STREAMING REAL
 async function sendMessage() {
   const text = input.value;
   if (!text) return;
@@ -186,25 +120,31 @@ async function sendMessage() {
   addMessage(text, "user");
   input.value = "";
 
-  typingDiv.textContent = "Piña está escribiendo...";
+  const botDiv = addMessage("...", "bot");
 
-  try {
-    const res = await fetch("/chat", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ message: text })
-    });
+  const res = await fetch("/chat", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      message: text,
+      sessionId
+    })
+  });
 
-    const data = await res.json();
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
 
-    typingDiv.textContent = "";
-    await typeEffect(data.reply);
+  botDiv.textContent = "";
 
-  } catch (err) {
-    typingDiv.textContent = "";
-    addMessage("Error conectando con el servidor", "bot");
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    const chunk = decoder.decode(value);
+    botDiv.textContent += chunk;
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
   }
 }
 </script>
