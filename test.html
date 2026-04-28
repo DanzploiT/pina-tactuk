@@ -23,6 +23,7 @@
     height: 60px;
     font-size: 24px;
     cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
   }
 
   /* VENTANA CHAT */
@@ -30,13 +31,25 @@
     position: fixed;
     bottom: 90px;
     right: 20px;
-    width: 300px;
-    height: 400px;
+    width: 320px;
+    height: 420px;
     background: #343541;
-    border-radius: 10px;
-    display: none;
+    border-radius: 12px;
+    display: flex;
     flex-direction: column;
     overflow: hidden;
+
+    /* 🔥 ANIMACIÓN */
+    transform: scale(0);
+    opacity: 0;
+    transform-origin: bottom right;
+    transition: all 0.25s ease;
+  }
+
+  /* ESTADO ACTIVO */
+  #chatWindow.active {
+    transform: scale(1);
+    opacity: 1;
   }
 
   /* HEADER */
@@ -45,6 +58,7 @@
     padding: 10px;
     display: flex;
     justify-content: space-between;
+    color: white;
   }
 
   #chatHeader button {
@@ -52,6 +66,7 @@
     border: none;
     color: white;
     cursor: pointer;
+    padding: 2px 8px;
   }
 
   /* MENSAJES */
@@ -63,35 +78,42 @@
   }
 
   .message {
-    margin: 5px 0;
+    margin: 6px 0;
     padding: 8px;
-    border-radius: 5px;
+    border-radius: 6px;
+    max-width: 80%;
   }
 
   .user {
-    background: #444654;
-    text-align: right;
+    background: #19c37d;
+    align-self: flex-end;
+    margin-left: auto;
   }
 
   .bot {
-    background: #3b3c4a;
+    background: #444654;
   }
 
   /* INPUT */
   #inputArea {
     display: flex;
-    padding: 5px;
+    padding: 8px;
     background: #40414f;
   }
 
   #input {
     flex: 1;
-    padding: 5px;
+    padding: 6px;
     border: none;
+    outline: none;
   }
 
-  button {
-    cursor: pointer;
+  #sendBtn {
+    margin-left: 5px;
+    padding: 6px 10px;
+    border: none;
+    background: #19c37d;
+    color: white;
   }
 </style>
 </head>
@@ -101,7 +123,7 @@
 <!-- BOTÓN -->
 <button id="chatButton" onclick="toggleChat()">🍍</button>
 
-<!-- VENTANA -->
+<!-- CHAT -->
 <div id="chatWindow">
 
   <div id="chatHeader">
@@ -113,17 +135,17 @@
 
   <div id="inputArea">
     <input id="input" placeholder="Escribe..." />
-    <button onclick="sendMessage()">Enviar</button>
+    <button id="sendBtn" onclick="sendMessage()">Enviar</button>
   </div>
 
 </div>
 
 <script>
 const chat = document.getElementById("chat");
+const chatWindow = document.getElementById("chatWindow");
 
 function toggleChat() {
-  const window = document.getElementById("chatWindow");
-  window.style.display = window.style.display === "flex" ? "none" : "flex";
+  chatWindow.classList.toggle("active");
 }
 
 function addMessage(text, sender) {
@@ -143,7 +165,10 @@ async function sendMessage() {
   addMessage(message, "user");
   input.value = "";
 
-  addMessage("Piña está escribiendo... 🍍", "bot");
+  const botDiv = document.createElement("div");
+  botDiv.className = "message bot";
+  botDiv.textContent = "Piña está escribiendo... 🍍";
+  chat.appendChild(botDiv);
 
   const res = await fetch("/chat", {
     method: "POST",
@@ -155,10 +180,10 @@ async function sendMessage() {
 
   const data = await res.json();
 
-  chat.lastChild.textContent = data.reply;
+  botDiv.textContent = data.reply;
 }
 
-// Enter
+// Enter para enviar
 document.getElementById("input").addEventListener("keypress", function(e) {
   if (e.key === "Enter") {
     sendMessage();
