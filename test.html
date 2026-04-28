@@ -7,212 +7,169 @@
 <style>
 body {
   margin: 0;
-  font-family: 'Segoe UI', sans-serif;
+  font-family: Arial;
+  display: flex;
   background: #0f172a;
 }
 
-/* LOGIN */
-#loginBox {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: #1e293b;
-  padding: 30px;
-  border-radius: 12px;
-  width: 300px;
-  box-shadow: 0 0 20px rgba(0,0,0,0.5);
-}
-
-#loginBox h2 {
-  color: #22c55e;
-  text-align: center;
-}
-
-#loginBox input {
-  width: 100%;
-  padding: 10px;
-  margin: 10px 0;
-  border: none;
-  border-radius: 6px;
-  background: #334155;
+/* SIDEBAR */
+#sidebar {
+  width: 250px;
+  background: #020617;
   color: white;
+  height: 100vh;
+  padding: 10px;
+  box-sizing: border-box;
 }
 
-#loginBox button {
+#sidebar button {
   width: 100%;
   padding: 10px;
   background: #22c55e;
   border: none;
-  border-radius: 6px;
-  color: black;
-  font-weight: bold;
   cursor: pointer;
+  margin-bottom: 10px;
 }
 
-/* BOTÓN */
-#openChat {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  background: #22c55e;
-  color: black;
-  border: none;
-  padding: 15px;
-  border-radius: 50%;
-  font-size: 20px;
+.chatItem {
+  padding: 10px;
   cursor: pointer;
-  display: none;
+  border-radius: 6px;
+}
+.chatItem:hover {
+  background: #1e293b;
 }
 
 /* CHAT */
-#chatBox {
-  position: fixed;
-  bottom: 80px;
-  right: 20px;
-  width: 420px;
-  height: 600px;
-  background: #020617;
-  border-radius: 14px;
-  display: none;
+#chat {
+  flex: 1;
+  display: flex;
   flex-direction: column;
-  overflow: hidden;
-  box-shadow: 0 0 30px rgba(0,0,0,0.8);
 }
 
-/* HEADER */
-#header {
-  background: #020617;
-  padding: 15px;
-  color: #22c55e;
-  font-weight: bold;
-  border-bottom: 1px solid #1e293b;
-}
-
-/* MENSAJES */
 #messages {
   flex: 1;
-  padding: 15px;
+  padding: 20px;
   overflow-y: auto;
 }
 
-/* BURBUJAS */
 .msg {
-  margin: 8px 0;
-  padding: 12px 15px;
-  border-radius: 14px;
-  max-width: 80%;
-  font-size: 14px;
-  line-height: 1.5;
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 10px;
+  max-width: 70%;
 }
 
-/* USER */
 .user {
   background: #22c55e;
   color: black;
   margin-left: auto;
 }
 
-/* BOT */
 .bot {
   background: #1e293b;
-  color: #e2e8f0;
-  margin-right: auto;
+  color: white;
 }
 
-/* INPUT */
 #inputArea {
   display: flex;
-  border-top: 1px solid #1e293b;
 }
 
 #input {
   flex: 1;
-  padding: 12px;
-  border: none;
-  outline: none;
-  background: #020617;
-  color: white;
+  padding: 10px;
 }
 
-#sendBtn {
+#send {
+  padding: 10px;
   background: #22c55e;
   border: none;
-  padding: 0 20px;
-  cursor: pointer;
-}
-
-/* SCROLL */
-#messages::-webkit-scrollbar {
-  width: 6px;
-}
-#messages::-webkit-scrollbar-thumb {
-  background: #22c55e;
 }
 </style>
 </head>
 
 <body>
 
-<!-- LOGIN -->
-<div id="loginBox">
-  <h2>Peña Tactuk 🪖</h2>
-  <input id="user" placeholder="Usuario">
-  <input id="pass" type="password" placeholder="Contraseña">
-  <button onclick="login()">Entrar</button>
+<div id="sidebar">
+  <button onclick="newChat()">+ Nuevo chat</button>
+  <div id="chatList"></div>
 </div>
 
-<!-- BOTÓN -->
-<button id="openChat">💬</button>
-
-<!-- CHAT -->
-<div id="chatBox">
-  <div id="header">Peña Tactuk 🪖</div>
+<div id="chat">
   <div id="messages"></div>
 
   <div id="inputArea">
-    <input id="input" placeholder="Escribe un mensaje...">
-    <button id="sendBtn">➤</button>
+    <input id="input" placeholder="Escribe...">
+    <button id="send">Enviar</button>
   </div>
 </div>
 
 <script>
 let userId = localStorage.getItem("user");
-
-// LOGIN
-async function login() {
-  const user = document.getElementById("user").value;
-
-  if (!user) return alert("Pon un usuario");
-
-  localStorage.setItem("user", user);
-  location.reload();
+if (!userId) {
+  userId = prompt("Pon tu usuario:");
+  localStorage.setItem("user", userId);
 }
 
-// Mostrar chat si hay usuario
-if (userId) {
-  document.getElementById("loginBox").style.display = "none";
-  document.getElementById("openChat").style.display = "block";
+let currentChat = null;
+
+// 🆕 NUEVO CHAT
+async function newChat() {
+  const res = await fetch("/new-chat", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ userId })
+  });
+
+  const chat = await res.json();
+  currentChat = chat._id;
+
+  document.getElementById("messages").innerHTML = "";
+  loadChats();
 }
 
-// Abrir chat
-document.getElementById("openChat").onclick = () => {
-  const box = document.getElementById("chatBox");
-  box.style.display = box.style.display === "flex" ? "none" : "flex";
-};
+// 📋 LISTA
+async function loadChats() {
+  const res = await fetch("/chats/" + userId);
+  const chats = await res.json();
 
-// Crear mensaje
+  const list = document.getElementById("chatList");
+  list.innerHTML = "";
+
+  chats.forEach(c => {
+    const div = document.createElement("div");
+    div.className = "chatItem";
+    div.textContent = c.title;
+    div.onclick = () => loadChat(c);
+    list.appendChild(div);
+  });
+}
+
+// 📂 CARGAR CHAT
+function loadChat(chat) {
+  currentChat = chat._id;
+
+  const box = document.getElementById("messages");
+  box.innerHTML = "";
+
+  chat.messages.forEach(m => {
+    if (m.role !== "system") {
+      addMessage(m.content, m.role === "user" ? "user" : "bot");
+    }
+  });
+}
+
+// ➕ MENSAJE
 function addMessage(text, cls) {
   const div = document.createElement("div");
   div.className = "msg " + cls;
   div.textContent = text;
   document.getElementById("messages").appendChild(div);
-  document.getElementById("messages").scrollTop = 999999;
   return div;
 }
 
-// ENVIAR MENSAJE
-document.getElementById("sendBtn").onclick = sendMessage;
+// 💬 ENVIAR
+document.getElementById("send").onclick = sendMessage;
 document.getElementById("input").addEventListener("keypress", e => {
   if (e.key === "Enter") sendMessage();
 });
@@ -221,20 +178,17 @@ async function sendMessage() {
   const input = document.getElementById("input");
   const text = input.value;
 
-  if (!text) return;
+  if (!text || !currentChat) return;
 
   addMessage(text, "user");
   input.value = "";
 
-  const botMsg = addMessage("Escribiendo...", "bot");
+  const botMsg = addMessage("...", "bot");
 
-  const res = await fetch("/chat", {
+  const res = await fetch("/chat/" + currentChat, {
     method: "POST",
     headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({
-      message: text,
-      userId: userId
-    })
+    body: JSON.stringify({ message: text })
   });
 
   botMsg.textContent = "";
@@ -245,10 +199,14 @@ async function sendMessage() {
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-
     botMsg.textContent += decoder.decode(value);
   }
+
+  loadChats();
 }
+
+// INIT
+loadChats();
 </script>
 
 </body>

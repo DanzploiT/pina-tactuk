@@ -3,141 +3,114 @@ import cors from "cors";
 import dotenv from "dotenv";
 import OpenAI from "openai";
 import mongoose from "mongoose";
-import path from "path";
-import { fileURLToPath } from "url";
 
 dotenv.config();
 
 const app = express();
-
-// 🔧 FIX RUTAS (IMPORTANTE PARA RAILWAY)
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// MIDDLEWARES
 app.use(cors());
 app.use(express.json());
-app.use(express.static(__dirname)); // sirve test.html correctamente
+app.use(express.static(".")); // sirve index.html
 
-// 🔥 VALIDAR MONGO
-if (!process.env.MONGO_URI) {
-  console.error("❌ MONGO_URI no definido");
-  process.exit(1);
-}
-
-// 🔗 CONEXIÓN MONGO
+// 🔗 MONGO
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ Mongo conectado"))
-  .catch(err => console.error("❌ Error Mongo:", err));
+.then(() => console.log("Mongo conectado"))
+.catch(err => console.log(err));
 
-// 📦 MODELO CHAT
-const chatSchema = new mongoose.Schema({
-  userId: String,
+// 📦 MODELOS
+const MessageSchema = new mongoose.Schema({
   role: String,
-  content: String,
-  createdAt: { type: Date, default: Date.now }
+  content: String
 });
 
-const Chat = mongoose.model("Chat", chatSchema);
+const ChatSchema = new mongoose.Schema({
+  userId: String,
+  title: String,
+  messages: [MessageSchema]
+});
+
+const Chat = mongoose.model("Chat", ChatSchema);
 
 // 🤖 OPENROUTER
 const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY,
-  defaultHeaders: {
-    "HTTP-Referer": "https://pina-tactuk-production.up.railway.app",
-    "X-OpenRouter-Title": "Pena Tactuk"
-  }
+  apiKey: process.env.OPENROUTER_API_KEY
 });
 
-// 🏠 RUTA PRINCIPAL (ABRE TU HTML)
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "test.html"));
-});
+// 🆕 NUEVO CHAT
+app.post("/new-chat", async (req, res) => {
+  const { userId } = req.body;
 
-// 💬 CHAT CON MEMORIA REAL
-app.post("/chat", async (req, res) => {
-  const { message, userId } = req.body;
-
-  if (!userId) return res.status(400).send("Falta userId");
-
-  try {
-    // 🧠 Traer últimos mensajes del usuario
-    const history = await Chat.find({ userId })
-      .sort({ createdAt: 1 })
-      .limit(15);
-
-    const messages = [
+  const chat = await Chat.create({
+    userId,
+    title: "Nueva conversación",
+    messages: [
       {
         role: "system",
         content: `
-Eres Peña Tactuk 🪖, militar del Ejército de la República Dominicana.
+Eres Peña Tactuk 🪖, militar dominicano.
 
-Reglas:
-- Habla claro, firme y directo
+- Hablas claro, firme y directo
 - Respuestas cortas
-- No repitas preguntas
-- No uses "Usuario" ni "Respuesta"
-- Mantén carácter militar
+- Sin relleno ni repeticiones
 
-Si no sabes algo:
+Si no sabes:
 "Negativo. Información no disponible."
 `
-      },
-      ...history.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      })),
-      {
-        role: "user",
-        content: message
       }
-    ];
+    ]
+  });
 
-    // 💾 Guardar mensaje usuario
-    await Chat.create({
-      userId,
-      role: "user",
-      content: message
-    });
+  res.json(chat);
+});
 
-    // ⚡ STREAM
-    const stream = await openai.chat.completions.create({
-      model: "openrouter/auto",
-      messages,
-      stream: true
-    });
+// 📋 LISTAR CHATS
+app.get("/chats/:userId", async (req, res) => {
+  const chats = await Chat.find({ userId: req.params.userId });
+  res.json(chats);
+});
 
-    res.setHeader("Content-Type", "text/plain");
+// 💬 ENVIAR MENSAJE
+app.post("/chat/:chatId", async (req, res) => {
+  const { message } = req.body;
 
-    let fullResponse = "";
+  const chat = await Chat.findById(req.params.chatId);
 
-    for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content;
-      if (content) {
-        fullResponse += content;
-        res.write(content);
-      }
+  chat.messages.push({ role: "user", content: message });
+
+  const stream = await openai.chat.completions.create({
+    model: "openrouter/auto",
+    messages: chat.messages,
+    stream: true
+  });
+
+  res.setHeader("Content-Type", "text/plain");
+
+  let full = "";
+
+  for await (const chunk of stream) {
+    const content = chunk.choices[0]?.delta?.content;
+    if (content) {
+      full += content;
+      res.write(content);
     }
-
-    // 💾 Guardar respuesta IA
-    await Chat.create({
-      userId,
-      role: "assistant",
-      content: fullResponse
-    });
-
-    res.end();
-
-  } catch (error) {
-    console.error("❌ ERROR IA:", error);
-    res.status(500).send("Error IA");
   }
+
+  chat.messages.push({ role: "assistant", content: full });
+
+  // título automático
+  if (chat.title === "Nueva conversación") {
+    chat.title = message.slice(0, 30);
+  }
+
+  await chat.save();
+
+  res.end();
 });
 
-// 🚀 PUERTO
+// ROOT
+app.get("/", (req, res) => {
+  res.sendFile(process.cwd() + "/index.html");
+});
+
 const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log("🚀 Servidor en puerto", PORT);
-});
+app.listen(PORT, () => console.log("Servidor en puerto", PORT));
