@@ -10,7 +10,6 @@
     font-family: Arial, sans-serif;
   }
 
-  /* BOTÓN FLOTANTE */
   #chatButton {
     position: fixed;
     bottom: 20px;
@@ -23,10 +22,8 @@
     height: 60px;
     font-size: 24px;
     cursor: pointer;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
   }
 
-  /* VENTANA CHAT */
   #chatWindow {
     position: fixed;
     bottom: 90px;
@@ -39,20 +36,17 @@
     flex-direction: column;
     overflow: hidden;
 
-    /* 🔥 ANIMACIÓN */
     transform: scale(0);
     opacity: 0;
     transform-origin: bottom right;
     transition: all 0.25s ease;
   }
 
-  /* ESTADO ACTIVO */
   #chatWindow.active {
     transform: scale(1);
     opacity: 1;
   }
 
-  /* HEADER */
   #chatHeader {
     background: #202123;
     padding: 10px;
@@ -66,15 +60,15 @@
     border: none;
     color: white;
     cursor: pointer;
-    padding: 2px 8px;
   }
 
-  /* MENSAJES */
   #chat {
     flex: 1;
     overflow-y: auto;
     padding: 10px;
     color: white;
+    display: flex;
+    flex-direction: column;
   }
 
   .message {
@@ -87,14 +81,12 @@
   .user {
     background: #19c37d;
     align-self: flex-end;
-    margin-left: auto;
   }
 
   .bot {
     background: #444654;
   }
 
-  /* INPUT */
   #inputArea {
     display: flex;
     padding: 8px;
@@ -120,10 +112,8 @@
 
 <body>
 
-<!-- BOTÓN -->
 <button id="chatButton" onclick="toggleChat()">🍍</button>
 
-<!-- CHAT -->
 <div id="chatWindow">
 
   <div id="chatHeader">
@@ -156,6 +146,22 @@ function addMessage(text, sender) {
   chat.scrollTop = chat.scrollHeight;
 }
 
+// ✍️ EFECTO ESCRIBIENDO
+function typeText(element, text, speed = 20) {
+  let i = 0;
+  element.textContent = "";
+
+  const interval = setInterval(() => {
+    element.textContent += text[i];
+    i++;
+    chat.scrollTop = chat.scrollHeight;
+
+    if (i >= text.length) {
+      clearInterval(interval);
+    }
+  }, speed);
+}
+
 async function sendMessage() {
   const input = document.getElementById("input");
   const message = input.value;
@@ -180,7 +186,8 @@ async function sendMessage() {
 
   const data = await res.json();
 
-  botDiv.textContent = data.reply;
+  // ✍️ AQUÍ SE ACTIVA EL EFECTO
+  typeText(botDiv, data.reply);
 }
 
 // Enter para enviar
