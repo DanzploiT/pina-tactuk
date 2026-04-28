@@ -8,56 +8,84 @@
 body {
   margin: 0;
   font-family: Arial;
-  display: flex;
   background: #0f172a;
 }
 
-/* SIDEBAR */
-#sidebar {
-  width: 250px;
-  background: #020617;
-  color: white;
-  height: 100vh;
-  padding: 10px;
-  box-sizing: border-box;
+/* LOGIN */
+#login {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #1e293b;
+  padding: 25px;
+  border-radius: 10px;
+  width: 260px;
 }
 
-#sidebar button {
+input {
+  width: 100%;
+  padding: 10px;
+  margin: 8px 0;
+  border: none;
+  border-radius: 6px;
+}
+
+button {
   width: 100%;
   padding: 10px;
   background: #22c55e;
   border: none;
+  border-radius: 6px;
   cursor: pointer;
-  margin-bottom: 10px;
 }
 
-.chatItem {
-  padding: 10px;
+/* BOTÓN */
+#openChat {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #22c55e;
+  border-radius: 50%;
+  padding: 15px;
   cursor: pointer;
-  border-radius: 6px;
-}
-.chatItem:hover {
-  background: #1e293b;
+  display: none;
 }
 
 /* CHAT */
 #chat {
-  flex: 1;
-  display: flex;
+  position: fixed;
+  bottom: 80px;
+  right: 20px;
+  width: 380px;
+  height: 550px;
+  background: #020617;
+  border-radius: 12px;
+  display: none;
   flex-direction: column;
 }
 
+/* HEADER */
+#header {
+  padding: 12px;
+  color: #22c55e;
+  font-weight: bold;
+  border-bottom: 1px solid #1e293b;
+}
+
+/* MENSAJES */
 #messages {
   flex: 1;
-  padding: 20px;
+  padding: 15px;
   overflow-y: auto;
 }
 
+/* BURBUJAS */
 .msg {
+  margin: 8px 0;
   padding: 10px;
-  margin: 10px 0;
   border-radius: 10px;
-  max-width: 70%;
+  max-width: 80%;
 }
 
 .user {
@@ -71,6 +99,7 @@ body {
   color: white;
 }
 
+/* INPUT */
 #inputArea {
   display: flex;
 }
@@ -78,120 +107,99 @@ body {
 #input {
   flex: 1;
   padding: 10px;
+  border: none;
 }
 
 #send {
-  padding: 10px;
   background: #22c55e;
   border: none;
+  padding: 10px;
 }
 </style>
 </head>
 
 <body>
 
-<div id="sidebar">
-  <button onclick="newChat()">+ Nuevo chat</button>
-  <div id="chatList"></div>
+<!-- LOGIN -->
+<div id="login">
+  <h3 style="color:white">Peña Tactuk 🪖</h3>
+  <input id="user" placeholder="Usuario">
+  <input id="pass" type="password" placeholder="Contraseña">
+  <button onclick="login()">Entrar</button>
 </div>
 
+<!-- BOTÓN -->
+<div id="openChat">💬</div>
+
+<!-- CHAT -->
 <div id="chat">
+  <div id="header">Peña Tactuk 🪖</div>
   <div id="messages"></div>
 
   <div id="inputArea">
     <input id="input" placeholder="Escribe...">
-    <button id="send">Enviar</button>
+    <button id="send" onclick="send()">➤</button>
   </div>
 </div>
 
 <script>
 let userId = localStorage.getItem("user");
-if (!userId) {
-  userId = prompt("Pon tu usuario:");
-  localStorage.setItem("user", userId);
+
+// mostrar chat si ya logueado
+if (userId) {
+  document.getElementById("login").style.display = "none";
+  document.getElementById("openChat").style.display = "block";
 }
 
-let currentChat = null;
+// login
+async function login() {
+  const u = user.value;
+  const p = pass.value;
 
-// 🆕 NUEVO CHAT
-async function newChat() {
-  const res = await fetch("/new-chat", {
+  const res = await fetch("/login", {
     method: "POST",
     headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ userId })
+    body: JSON.stringify({ username: u, password: p })
   });
 
-  const chat = await res.json();
-  currentChat = chat._id;
+  if (!res.ok) return alert("Error");
 
-  document.getElementById("messages").innerHTML = "";
-  loadChats();
+  localStorage.setItem("user", u);
+  location.reload();
 }
 
-// 📋 LISTA
-async function loadChats() {
-  const res = await fetch("/chats/" + userId);
-  const chats = await res.json();
+// abrir chat
+openChat.onclick = () => {
+  chat.style.display = chat.style.display === "flex" ? "none" : "flex";
+};
 
-  const list = document.getElementById("chatList");
-  list.innerHTML = "";
-
-  chats.forEach(c => {
-    const div = document.createElement("div");
-    div.className = "chatItem";
-    div.textContent = c.title;
-    div.onclick = () => loadChat(c);
-    list.appendChild(div);
-  });
-}
-
-// 📂 CARGAR CHAT
-function loadChat(chat) {
-  currentChat = chat._id;
-
-  const box = document.getElementById("messages");
-  box.innerHTML = "";
-
-  chat.messages.forEach(m => {
-    if (m.role !== "system") {
-      addMessage(m.content, m.role === "user" ? "user" : "bot");
-    }
-  });
-}
-
-// ➕ MENSAJE
-function addMessage(text, cls) {
+// agregar mensaje
+function add(text, cls) {
   const div = document.createElement("div");
   div.className = "msg " + cls;
   div.textContent = text;
-  document.getElementById("messages").appendChild(div);
+  messages.appendChild(div);
+  messages.scrollTop = 9999;
   return div;
 }
 
-// 💬 ENVIAR
-document.getElementById("send").onclick = sendMessage;
-document.getElementById("input").addEventListener("keypress", e => {
-  if (e.key === "Enter") sendMessage();
-});
-
-async function sendMessage() {
-  const input = document.getElementById("input");
+// enviar mensaje
+async function send() {
   const text = input.value;
+  if (!text) return;
 
-  if (!text || !currentChat) return;
-
-  addMessage(text, "user");
+  add(text, "user");
   input.value = "";
 
-  const botMsg = addMessage("...", "bot");
+  const bot = add("...", "bot");
 
-  const res = await fetch("/chat/" + currentChat, {
+  const res = await fetch("/chat", {
     method: "POST",
     headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ message: text })
+    body: JSON.stringify({ message: text, userId })
   });
 
-  botMsg.textContent = "";
+  bot.textContent = "";
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -199,14 +207,14 @@ async function sendMessage() {
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    botMsg.textContent += decoder.decode(value);
+    bot.textContent += decoder.decode(value);
   }
-
-  loadChats();
 }
 
-// INIT
-loadChats();
+// enter enviar
+input.addEventListener("keypress", e => {
+  if (e.key === "Enter") send();
+});
 </script>
 
 </body>

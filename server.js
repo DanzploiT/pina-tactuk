@@ -2,115 +2,123 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import OpenAI from "openai";
-import mongoose from "mongoose";
 
 dotenv.config();
 
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 app.use(express.static(".")); // sirve index.html
 
-// 🔗 MONGO
-mongoose.connect(process.env.MONGO_URI)
-.then(() => console.log("Mongo conectado"))
-.catch(err => console.log(err));
+// 🧠 Memoria en RAM
+const chats = {};
 
-// 📦 MODELOS
-const MessageSchema = new mongoose.Schema({
-  role: String,
-  content: String
-});
+// 👤 Usuarios simples (puedes cambiar)
+const users = {
+  admin: "1234",
+  militar: "1234"
+};
 
-const ChatSchema = new mongoose.Schema({
-  userId: String,
-  title: String,
-  messages: [MessageSchema]
-});
-
-const Chat = mongoose.model("Chat", ChatSchema);
-
-// 🤖 OPENROUTER
+// 🤖 Cliente OpenRouter
 const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY
-});
-
-// 🆕 NUEVO CHAT
-app.post("/new-chat", async (req, res) => {
-  const { userId } = req.body;
-
-  const chat = await Chat.create({
-    userId,
-    title: "Nueva conversación",
-    messages: [
-      {
-        role: "system",
-        content: `
-Eres Peña Tactuk 🪖, militar dominicano.
-
-- Hablas claro, firme y directo
-- Respuestas cortas
-- Sin relleno ni repeticiones
-
-Si no sabes:
-"Negativo. Información no disponible."
-`
-      }
-    ]
-  });
-
-  res.json(chat);
-});
-
-// 📋 LISTAR CHATS
-app.get("/chats/:userId", async (req, res) => {
-  const chats = await Chat.find({ userId: req.params.userId });
-  res.json(chats);
-});
-
-// 💬 ENVIAR MENSAJE
-app.post("/chat/:chatId", async (req, res) => {
-  const { message } = req.body;
-
-  const chat = await Chat.findById(req.params.chatId);
-
-  chat.messages.push({ role: "user", content: message });
-
-  const stream = await openai.chat.completions.create({
-    model: "openrouter/auto",
-    messages: chat.messages,
-    stream: true
-  });
-
-  res.setHeader("Content-Type", "text/plain");
-
-  let full = "";
-
-  for await (const chunk of stream) {
-    const content = chunk.choices[0]?.delta?.content;
-    if (content) {
-      full += content;
-      res.write(content);
-    }
+  apiKey: process.env.OPENROUTER_API_KEY,
+  defaultHeaders: {
+    "HTTP-Referer": "https://pena-tactuk.up.railway.app",
+    "X-OpenRouter-Title": "Pena Tactuk"
   }
-
-  chat.messages.push({ role: "assistant", content: full });
-
-  // título automático
-  if (chat.title === "Nueva conversación") {
-    chat.title = message.slice(0, 30);
-  }
-
-  await chat.save();
-
-  res.end();
 });
 
-// ROOT
+// Ruta base
 app.get("/", (req, res) => {
   res.sendFile(process.cwd() + "/index.html");
 });
 
+// 🔐 LOGIN
+app.post("/login", (req, res) => {
+  const { username, password } = req.body;
+
+  if (users[username] && users[username] === password) {
+    return res.json({ success: true });
+  }
+
+  res.status(401).json({ error: "Credenciales inválidas" });
+});
+
+// 💬 CHAT CON MEMORIA
+app.post("/chat", async (req, res) => {
+  const { message, userId } = req.body;
+
+  if (!userId) return res.status(400).send("Falta userId");
+
+  // Crear historial si no existe
+  if (!chats[userId]) {
+    chats[userId] = [
+      {
+        role: "system",
+        content: `
+Eres Peña Tactuk, un militar dominicano.
+
+REGLAS:
+- SIEMPRE respondes en español
+- Hablas claro, firme y directo
+- Respuestas cortas (máximo 3-4 líneas)
+- Nunca hablas en inglés
+- No das rodeos
+- No usas "Usuario" ni "Respuesta"
+
+PERSONALIDAD:
+Eres disciplinado, respetuoso y con autoridad militar.
+
+Si no sabes algo:
+"Negativo. No dispongo de esa información."
+`
+      }
+    ];
+  }
+
+  // Guardar mensaje usuario
+  chats[userId].push({ role: "user", content: message });
+
+  try {
+    const stream = await openai.chat.completions.create({
+      model: "openrouter/auto",
+      messages: chats[userId].slice(-10),
+      stream: true
+    });
+
+    res.setHeader("Content-Type", "text/plain");
+
+    let full = "";
+
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content;
+      if (content) {
+        full += content;
+        res.write(content);
+      }
+    }
+
+    // Guardar respuesta IA
+    chats[userId].push({ role: "assistant", content: full });
+
+    // Limitar memoria
+    if (chats[userId].length > 20) {
+      chats[userId] = chats[userId].slice(-20);
+    }
+
+    res.end();
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error IA");
+  }
+});
+
+// 🚀 Puerto
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("Servidor en puerto", PORT));
+
+app.listen(PORT, () => {
+  console.log("Servidor corriendo en puerto", PORT);
+});
