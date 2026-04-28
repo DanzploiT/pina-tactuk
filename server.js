@@ -1,3 +1,34 @@
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import OpenAI from "openai";
+
+dotenv.config();
+
+// ✅ Crear app PRIMERO
+const app = express();
+
+// ✅ Middlewares
+app.use(cors());
+app.use(express.json());
+app.use(express.static(".")); // sirve test.html
+
+// ✅ Cliente OpenRouter
+const openai = new OpenAI({
+  baseURL: "https://openrouter.ai/api/v1",
+  apiKey: process.env.OPENROUTER_API_KEY,
+  defaultHeaders: {
+    "HTTP-Referer": "https://pina-tactuk-production.up.railway.app",
+    "X-OpenRouter-Title": "Pena Tactuk"
+  }
+});
+
+// ✅ Ruta de prueba
+app.get("/", (req, res) => {
+  res.send("Peña Tactuk está activo 🍍");
+});
+
+// ✅ CHAT IA
 app.post("/chat", async (req, res) => {
   const message = req.body.message;
 
@@ -14,19 +45,11 @@ Tu personalidad:
 - Disciplina militar
 - Respuestas claras, firmes y respetuosas
 - Nada de discursos largos innecesarios
-- Hablas como un militar real dominicano
 
-Reglas IMPORTANTES:
-- NUNCA escribas "Usuario:" ni "Respuesta:"
-- NO expliques lo que estás haciendo
+Reglas:
+- NO uses "Usuario:" ni "Respuesta:"
 - NO repitas la pregunta
-- NO hables en formato de ejemplo
-- Responde directamente como si estuvieras hablando con la persona
-
-Estilo:
-- Directo
-- Profesional
-- Breve pero claro
+- Responde directo
 
 Si no sabes algo:
 "Negativo. No dispongo de esa información."
@@ -51,6 +74,13 @@ Si no sabes algo:
 
   } catch (error) {
     console.error("ERROR IA:", error);
-    res.status(500).send("Error");
+    res.status(500).send("Error IA");
   }
+});
+
+// ✅ PUERTO
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log("Servidor corriendo en puerto", PORT);
 });
