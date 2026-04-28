@@ -2,109 +2,84 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import OpenAI from "openai";
-import path from "path";
-import { fileURLToPath } from "url";
 
 dotenv.config();
 
 const app = express();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
+// Middlewares
 app.use(cors());
 app.use(express.json());
-app.use(express.static(__dirname));
+app.use(express.static("./")); // sirve tu test.html
 
-// IA
+// Cliente OpenRouter (modo OpenAI)
 const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY
-});
-
-// 🧠 memoria
-let conversations = {};
-let users = {}; // { username: password }
-
-// ================= LOGIN =================
-
-app.post("/register", (req, res) => {
-  const { username, password } = req.body;
-
-  if (users[username]) {
-    return res.json({ success: false, msg: "Usuario ya existe" });
+  apiKey: process.env.OPENROUTER_API_KEY,
+  defaultHeaders: {
+    "HTTP-Referer": "https://pina-tactuk-production.up.railway.app",
+    "X-OpenRouter-Title": "Pena Tactuk"
   }
-
-  users[username] = password;
-  res.json({ success: true });
 });
 
-app.post("/login", (req, res) => {
-  const { username, password } = req.body;
-
-  if (users[username] === password) {
-    return res.json({ success: true });
-  }
-
-  res.json({ success: false });
+// Ruta de prueba
+app.get("/", (req, res) => {
+  res.send("Peña Tactuk está activo 🪖");
 });
 
-// ================= CHAT =================
-
+// Chat IA
 app.post("/chat", async (req, res) => {
-  const { message, sessionId } = req.body;
-
-  if (!conversations[sessionId]) {
-    conversations[sessionId] = [
-      {
-        role: "system",
-        content: `
-Eres Peña Tactuk 🇩🇴, un militar del Ejército de la República Dominicana.
-Conoces el reglamento militar y la Academia Militar Batalla de las Carreras.
-Hablas con disciplina, respeto, autoridad y carácter militar.
-        `
-      }
-    ];
-  }
-
-  conversations[sessionId].push({
-    role: "user",
-    content: message
-  });
+  const message = req.body.message;
 
   try {
     const stream = await openai.chat.completions.create({
       model: "openrouter/auto",
-      messages: conversations[sessionId],
+      messages: [
+        {
+          role: "system",
+          content: `
+Eres Peña Tactuk 🇩🇴, un militar disciplinado del Ejército de la República Dominicana.
+
+Reglas:
+- Responde breve
+- Sé claro y directo
+- Usa tono firme pero natural
+- No hagas discursos largos
+- No repitas ideas
+- Habla como en una conversación real
+
+Ejemplo:
+"Buenos días. ¿En qué puedo ayudarte?"
+`
+        },
+        {
+          role: "user",
+          content: message
+        }
+      ],
       stream: true
     });
 
     res.setHeader("Content-Type", "text/plain");
 
-    let full = "";
-
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content;
       if (content) {
-        full += content;
         res.write(content);
       }
     }
 
-    conversations[sessionId].push({
-      role: "assistant",
-      content: full
-    });
-
     res.end();
 
-  } catch (err) {
-    console.error(err);
-    res.status(500).end("Error IA");
+  } catch (error) {
+    console.error("ERROR IA:", error);
+    res.status(500).send("Error en la IA");
   }
 });
 
+// Puerto dinámico para Railway
 const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
-  console.log("Servidor en puerto", PORT);
+  console.log("Servidor corriendo en puerto", PORT);
 });
