@@ -9,51 +9,64 @@ dotenv.config();
 
 const app = express();
 
-// Fix rutas Railway
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Middlewares
 app.use(cors());
 app.use(express.json());
-
-// Servir frontend
 app.use(express.static(__dirname));
 
-// Cliente OpenRouter
+// IA
 const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
   apiKey: process.env.OPENROUTER_API_KEY
 });
 
-// 🧠 Memoria en servidor
+// 🧠 memoria
 let conversations = {};
+let users = {}; // { username: password }
 
-// Ruta base
-app.get("/", (req, res) => {
-  res.send("Peña Tactuk 🇩🇴 está operativo");
+// ================= LOGIN =================
+
+app.post("/register", (req, res) => {
+  const { username, password } = req.body;
+
+  if (users[username]) {
+    return res.json({ success: false, msg: "Usuario ya existe" });
+  }
+
+  users[username] = password;
+  res.json({ success: true });
 });
 
-// Chat con streaming REAL
+app.post("/login", (req, res) => {
+  const { username, password } = req.body;
+
+  if (users[username] === password) {
+    return res.json({ success: true });
+  }
+
+  res.json({ success: false });
+});
+
+// ================= CHAT =================
+
 app.post("/chat", async (req, res) => {
   const { message, sessionId } = req.body;
 
-  // Crear memoria si no existe
   if (!conversations[sessionId]) {
     conversations[sessionId] = [
       {
         role: "system",
         content: `
-Eres Peña Tactuk 🇩🇴, un militar disciplinado del Ejército de la República Dominicana.
-Tienes amplio conocimiento del reglamento militar dominicano y de la Academia Militar Batalla de las Carreras.
-Hablas con respeto, firmeza, liderazgo y autoridad militar.
-Respondes claro, directo y con carácter.
+Eres Peña Tactuk 🇩🇴, un militar del Ejército de la República Dominicana.
+Conoces el reglamento militar y la Academia Militar Batalla de las Carreras.
+Hablas con disciplina, respeto, autoridad y carácter militar.
         `
       }
     ];
   }
 
-  // Guardar mensaje del usuario
   conversations[sessionId].push({
     role: "user",
     content: message
@@ -68,33 +81,30 @@ Respondes claro, directo y con carácter.
 
     res.setHeader("Content-Type", "text/plain");
 
-    let fullResponse = "";
+    let full = "";
 
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content;
       if (content) {
-        fullResponse += content;
+        full += content;
         res.write(content);
       }
     }
 
-    // Guardar respuesta IA
     conversations[sessionId].push({
       role: "assistant",
-      content: fullResponse
+      content: full
     });
 
     res.end();
 
-  } catch (error) {
-    console.error("ERROR IA:", error);
-    res.status(500).end("Error");
+  } catch (err) {
+    console.error(err);
+    res.status(500).end("Error IA");
   }
 });
 
-// Puerto Railway
 const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, () => {
-  console.log("Servidor corriendo en puerto", PORT);
+  console.log("Servidor en puerto", PORT);
 });
