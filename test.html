@@ -45,19 +45,31 @@ body {
   border-bottom: 1px solid #1e293b;
 }
 
-/* AVATAR FIJO */
+/* AVATAR (CLAVE) */
 #avatarContainer {
-  display: flex;
-  align-items: center;
-  padding: 10px;
-  border-bottom: 1px solid #1e293b;
+  position: relative;
+  width: 70px;
+  height: 70px;
+  margin: 10px;
 }
 
-#avatar {
-  width: 60px;
-  height: 60px;
-  border-radius: 10px;
+#avatarContainer video {
+  position: absolute;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
+  border-radius: 10px;
+  transition: opacity 0.4s ease;
+}
+
+/* idle visible por defecto */
+#idleVideo {
+  opacity: 1;
+}
+
+/* talking oculto */
+#talkingVideo {
+  opacity: 0;
 }
 
 /* MENSAJES */
@@ -117,11 +129,10 @@ body {
 <div id="chatBox">
   <div id="header">Peña Tactuk 🪖</div>
 
-  <!-- AVATAR FIJO -->
+  <!-- 🔥 AVATAR FIJO -->
   <div id="avatarContainer">
-    <video id="avatar" autoplay muted loop>
-      <source src="idle.mp4" type="video/mp4">
-    </video>
+    <video id="idleVideo" src="idle.mp4" autoplay muted loop></video>
+    <video id="talkingVideo" src="talking.mp4" autoplay muted loop></video>
   </div>
 
   <div id="messages"></div>
@@ -140,7 +151,8 @@ if (!userId) {
   localStorage.setItem("userId", userId);
 }
 
-const avatar = document.getElementById("avatar");
+const idleVideo = document.getElementById("idleVideo");
+const talkingVideo = document.getElementById("talkingVideo");
 
 // MENSAJES
 function addMessage(text, cls) {
@@ -149,6 +161,18 @@ function addMessage(text, cls) {
   div.textContent = text;
   document.getElementById("messages").appendChild(div);
   document.getElementById("messages").scrollTop = 99999;
+  return div;
+}
+
+// CONTROL AVATAR
+function startTalking() {
+  idleVideo.style.opacity = 0;
+  talkingVideo.style.opacity = 1;
+}
+
+function stopTalking() {
+  talkingVideo.style.opacity = 0;
+  idleVideo.style.opacity = 1;
 }
 
 // ENVIAR
@@ -160,12 +184,10 @@ async function sendMessage() {
   addMessage(text, "user");
   input.value = "";
 
-  const botMsg = document.createElement("div");
-  botMsg.className = "msg bot";
-  document.getElementById("messages").appendChild(botMsg);
+  const botMsg = addMessage("", "bot");
 
-  // 🟢 EMPIEZA A HABLAR
-  avatar.src = "talking.mp4";
+  // 🟢 empieza hablar
+  startTalking();
 
   const res = await fetch("/chat", {
     method: "POST",
@@ -187,10 +209,10 @@ async function sendMessage() {
     botMsg.textContent = full;
   }
 
-  // 🔵 VUELVE A IDLE SUAVE
+  // 🔵 vuelve a idle suave
   setTimeout(() => {
-    avatar.src = "idle.mp4";
-  }, 1000);
+    stopTalking();
+  }, 1200);
 }
 
 // EVENTOS
@@ -200,7 +222,6 @@ document.getElementById("input").addEventListener("keypress", e => {
   if (e.key === "Enter") sendMessage();
 });
 
-// toggle
 document.getElementById("openChat").onclick = () => {
   const box = document.getElementById("chatBox");
   box.style.display = box.style.display === "none" ? "flex" : "none";
