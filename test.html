@@ -45,11 +45,11 @@ body {
   border-bottom: 1px solid #1e293b;
 }
 
-/* AVATAR (CLAVE) */
+/* AVATAR */
 #avatarContainer {
   position: relative;
-  width: 70px;
-  height: 70px;
+  width: 80px;
+  height: 80px;
   margin: 10px;
 }
 
@@ -62,12 +62,10 @@ body {
   transition: opacity 0.4s ease;
 }
 
-/* idle visible por defecto */
 #idleVideo {
   opacity: 1;
 }
 
-/* talking oculto */
 #talkingVideo {
   opacity: 0;
 }
@@ -129,10 +127,10 @@ body {
 <div id="chatBox">
   <div id="header">Peña Tactuk 🪖</div>
 
-  <!-- 🔥 AVATAR FIJO -->
+  <!-- AVATAR -->
   <div id="avatarContainer">
-    <video id="idleVideo" src="idle.mp4" autoplay muted loop></video>
-    <video id="talkingVideo" src="talking.mp4" autoplay muted loop></video>
+    <video id="idleVideo" src="idle.mp4" muted loop playsinline></video>
+    <video id="talkingVideo" src="talking.mp4" muted loop playsinline></video>
   </div>
 
   <div id="messages"></div>
@@ -154,6 +152,12 @@ if (!userId) {
 const idleVideo = document.getElementById("idleVideo");
 const talkingVideo = document.getElementById("talkingVideo");
 
+// 🔥 ACTIVAR VIDEOS
+function initVideos() {
+  idleVideo.play().catch(()=>{});
+  talkingVideo.play().catch(()=>{});
+}
+
 // MENSAJES
 function addMessage(text, cls) {
   const div = document.createElement("div");
@@ -164,10 +168,11 @@ function addMessage(text, cls) {
   return div;
 }
 
-// CONTROL AVATAR
+// AVATAR CONTROL
 function startTalking() {
-  idleVideo.style.opacity = 0;
+  talkingVideo.currentTime = 0;
   talkingVideo.style.opacity = 1;
+  idleVideo.style.opacity = 0;
 }
 
 function stopTalking() {
@@ -175,8 +180,10 @@ function stopTalking() {
   idleVideo.style.opacity = 1;
 }
 
-// ENVIAR
+// ENVIAR MENSAJE
 async function sendMessage() {
+  initVideos();
+
   const input = document.getElementById("input");
   const text = input.value;
   if (!text) return;
@@ -186,7 +193,6 @@ async function sendMessage() {
 
   const botMsg = addMessage("", "bot");
 
-  // 🟢 empieza hablar
   startTalking();
 
   const res = await fetch("/chat", {
@@ -209,7 +215,6 @@ async function sendMessage() {
     botMsg.textContent = full;
   }
 
-  // 🔵 vuelve a idle suave
   setTimeout(() => {
     stopTalking();
   }, 1200);
@@ -225,6 +230,7 @@ document.getElementById("input").addEventListener("keypress", e => {
 document.getElementById("openChat").onclick = () => {
   const box = document.getElementById("chatBox");
   box.style.display = box.style.display === "none" ? "flex" : "none";
+  initVideos();
 };
 </script>
 
