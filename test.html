@@ -32,7 +32,7 @@ body {
   height: 580px;
   background: #020617;
   border-radius: 12px;
-  display: flex;
+  display: none;
   flex-direction: column;
   overflow: hidden;
   box-shadow: 0 0 20px rgba(0,0,0,0.6);
@@ -59,15 +59,17 @@ body {
   height: 100%;
   object-fit: cover;
   border-radius: 10px;
-  transition: opacity 0.4s ease;
+  transition: opacity 0.3s ease;
 }
 
 #idleVideo {
   opacity: 1;
+  z-index: 2;
 }
 
 #talkingVideo {
   opacity: 0;
+  z-index: 1;
 }
 
 /* MENSAJES */
@@ -127,7 +129,7 @@ body {
 <div id="chatBox">
   <div id="header">Peña Tactuk 🪖</div>
 
-  <!-- AVATAR -->
+  <!-- AVATAR SIEMPRE VISIBLE -->
   <div id="avatarContainer">
     <video id="idleVideo" src="idle.mp4" muted loop playsinline></video>
     <video id="talkingVideo" src="talking.mp4" muted loop playsinline></video>
@@ -152,7 +154,7 @@ if (!userId) {
 const idleVideo = document.getElementById("idleVideo");
 const talkingVideo = document.getElementById("talkingVideo");
 
-// 🔥 ACTIVAR VIDEOS
+// 🔥 Inicializar videos
 function initVideos() {
   idleVideo.play().catch(()=>{});
   talkingVideo.play().catch(()=>{});
@@ -168,7 +170,7 @@ function addMessage(text, cls) {
   return div;
 }
 
-// AVATAR CONTROL
+// CONTROL AVATAR
 function startTalking() {
   talkingVideo.currentTime = 0;
   talkingVideo.style.opacity = 1;
@@ -178,6 +180,10 @@ function startTalking() {
 function stopTalking() {
   talkingVideo.style.opacity = 0;
   idleVideo.style.opacity = 1;
+
+  // 🔥 FORZAR IDLE SIEMPRE
+  idleVideo.currentTime = 0;
+  idleVideo.play().catch(()=>{});
 }
 
 // ENVIAR MENSAJE
@@ -193,6 +199,7 @@ async function sendMessage() {
 
   const botMsg = addMessage("", "bot");
 
+  // 🟢 empezar animación
   startTalking();
 
   const res = await fetch("/chat", {
@@ -215,9 +222,8 @@ async function sendMessage() {
     botMsg.textContent = full;
   }
 
-  setTimeout(() => {
-    stopTalking();
-  }, 1200);
+  // 🔵 TERMINÓ → vuelve a idle (SIN timeout)
+  stopTalking();
 }
 
 // EVENTOS
