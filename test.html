@@ -56,10 +56,10 @@ body {
 .row {
   display: flex;
   align-items: flex-end;
-  margin: 8px 0;
+  margin: 10px 0;
 }
 
-/* AVATAR */
+/* AVATAR SIEMPRE VISIBLE */
 .avatar {
   width: 50px;
   height: 50px;
@@ -67,19 +67,18 @@ body {
   margin-right: 8px;
   overflow: hidden;
   flex-shrink: 0;
-  opacity: 0;
-  transition: opacity 0.3s ease;
 }
 
 .avatar video {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: opacity 0.2s ease;
 }
 
 /* BURBUJAS */
 .msg {
-  padding: 10px 14px;
+  padding: 12px 14px;
   border-radius: 12px;
   max-width: 75%;
   font-size: 14px;
@@ -164,7 +163,7 @@ function addUserMessage(text) {
   messages.scrollTop = 99999;
 }
 
-// MENSAJE BOT CON AVATAR
+// MENSAJE BOT (CON AVATAR SIEMPRE VISIBLE)
 function createBotMessage() {
   const row = document.createElement("div");
   row.className = "row";
@@ -189,11 +188,6 @@ function createBotMessage() {
   messages.appendChild(row);
   messages.scrollTop = 99999;
 
-  // fade in avatar
-  setTimeout(() => {
-    avatarBox.style.opacity = 1;
-  }, 50);
-
   return { msg, video };
 }
 
@@ -208,10 +202,12 @@ async function sendMessage() {
 
   const { msg, video } = createBotMessage();
 
-  // 🟢 hablar suave
+  // 🟢 CAMBIO SUAVE A HABLANDO
+  video.style.opacity = 0.6;
   setTimeout(() => {
     video.src = "talking.mp4";
-  }, 200);
+    video.style.opacity = 1;
+  }, 150);
 
   const res = await fetch("/chat", {
     method: "POST",
@@ -233,10 +229,14 @@ async function sendMessage() {
     msg.textContent = full;
   }
 
-  // 🔵 delay antes de parar (se siente natural)
+  // 🔵 REGRESO SUAVE A IDLE
   setTimeout(() => {
-    video.src = "idle.mp4";
-  }, 1200);
+    video.style.opacity = 0.6;
+    setTimeout(() => {
+      video.src = "idle.mp4";
+      video.style.opacity = 1;
+    }, 200);
+  }, 1000);
 }
 
 // EVENTOS
@@ -246,7 +246,7 @@ document.getElementById("input").addEventListener("keypress", e => {
   if (e.key === "Enter") sendMessage();
 });
 
-// toggle chat
+// TOGGLE CHAT
 document.getElementById("openChat").onclick = () => {
   const box = document.getElementById("chatBox");
   box.style.display = box.style.display === "none" ? "flex" : "none";
